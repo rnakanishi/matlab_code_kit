@@ -10,6 +10,7 @@ classdef quad_tree < handle
         depth_
         geometry_
         parent_
+        nleafs_
     end
 
     methods
@@ -29,17 +30,23 @@ classdef quad_tree < handle
             hold(qt_parent, 'on');
             axis(qt_parent, [qt_geometry(1) qt_geometry(1)+qt_geometry(3) qt_geometry(2) qt_geometry(2)+qt_geometry(4)]);
 
-            obj.root_ = mcodekit.tree.quad_tree_node(qt_parent, obj.depth_, qt_node_capacity, qt_max_depth, qt_geometry);
+            obj.root_ = mcodekit.tree.quad_tree_node(qt_parent, obj.depth_, qt_node_capacity, qt_max_depth, qt_geometry, 1);
             obj.geometry_ = obj.root_.geometry_;
             obj.parent_ = qt_parent;
             set(obj.parent_, 'ButtonDownFcn', @obj.callback_handler);
+
+            obj.nleafs_ = 1;
         end
 
         function insert_point(obj, qt_point)
             % bool = obj.root_.insert_point(mcodekit.tree.quad_tree_point(obj.parent_,qt_point));
-            bool = obj.root_.insert_point(mcodekit.tree.quad_tree_point([],qt_point));
+            [bool, partitioned] = obj.root_.insert_point(mcodekit.tree.quad_tree_point([],qt_point), obj.nleafs_);
             if (~bool)
                 error('point does not fit in tree');
+            end
+            if (partitioned)
+                obj.nleafs_ = obj.nleafs_ + 3;
+                fprintf('Leaf partitioned. NLeafs = %d\n',obj.nleafs_);
             end
         end
 
@@ -59,8 +66,8 @@ classdef quad_tree < handle
                 if(node.partitioned_)
                     for i=1:4
                         disp('enqueue?');
-                        if (obj.circle_intersect_quad(qt_point, qt_radius, node.quads_(i).geometry_))
-                            q.enqueue(node.quads_(i));
+                        if (obj.circle_intersect_quad(qt_point, qt_radius, node.children_(i).geometry_))
+                            q.enqueue(node.children_(i));
                             disp('yes!');
                         else
                             disp('no!');
@@ -133,9 +140,9 @@ classdef quad_tree < handle
             q = obj.root_;
             while(q.partitioned_)
                 for i=1:4
-                    bool = q.quads_(i).geometry_.point_in_quad(p);
+                    bool = q.children_(i).geometry_.point_in_quad(p);
                     if(bool)
-                        q = q.quads_(i);
+                        q = q.children_(i);
                         break;
                     end
                 end
@@ -152,10 +159,8 @@ classdef quad_tree < handle
         function insert_point_by_click(obj, src, event)
             click = get(obj.parent_, 'CurrentPoint');
             click_src = click(1,1:2);
-            bool = obj.root_.insert_point(mcodekit.tree.quad_tree_point([],click_src));
-            if (~bool)
-                error('point does not fit in tree');
-            end
+
+            obj.insert_point(click_src);
         end
 
         function find_quad_neighbors_by_click(obj, src, event)
@@ -163,7 +168,7 @@ classdef quad_tree < handle
             click_src = click(1,1:2);
             p = mcodekit.tree.quad_tree_point([],click_src);
 
-            find_quad_neighbor(obj, p);
+            obj.find_quad_neighbor(p);
         end
 
         function find_quad_neighbor(obj, p)
@@ -171,9 +176,9 @@ classdef quad_tree < handle
             % Find which quad contains the click point
             while(q.partitioned_)
                 for i=1:4
-                    bool = q.quads_(i).geometry_.point_in_quad(p);
+                    bool = q.children_(i).geometry_.point_in_quad(p);
                     if(bool)
-                        q = q.quads_(i);
+                        q = q.children_(i);
                         break;
                     end
                 end
@@ -215,9 +220,9 @@ classdef quad_tree < handle
                 q_ = obj.root_;
                 while(q_.partitioned_)
                     for i=1:4
-                        bool = q_.quads_(i).geometry_.point_in_quad(p);
+                        bool = q_.children_(i).geometry_.point_in_quad(p);
                         if(bool)
-                            q_ = q_.quads_(i);
+                            q_ = q_.children_(i);
                             break;
                         end
                     end

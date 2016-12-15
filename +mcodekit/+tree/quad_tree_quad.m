@@ -13,10 +13,11 @@ classdef quad_tree_quad < handle
         side_ab_
         side_ad_
         gfx_
+        id_
     end
 
     methods
-        function obj = quad_tree_quad(parent, qt_geometry)
+        function obj = quad_tree_quad(parent, qt_geometry, qt_id)
             assert(min(size(qt_geometry)==[1,4])', 'quad geometry must be [x, y, width, height]');
             obj.x_ = qt_geometry(1);
             obj.y_ = qt_geometry(2);
@@ -31,7 +32,10 @@ classdef quad_tree_quad < handle
             obj.side_ab_ = [obj.width_ 0];
             obj.side_ad_ = [0 obj.height_];
 
+            obj.id_ = qt_id;
+
             obj.gfx_ = rectangle('Parent', parent, 'Position', qt_geometry, 'EdgeColor', 'r');
+            text(obj.cx_, obj.cy_, num2str(qt_id))
         end
 
         function geom = to_geometry(obj)
